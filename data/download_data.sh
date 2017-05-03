@@ -5,9 +5,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 if [ ! $(which wget) ]
 then
 	echo 'Please install wget. If on Ubuntu, run "sudo apt-get install wget".'
+	exit 1
 fi
-
-exit 0
 
 cd $DIR/features/music21
 
