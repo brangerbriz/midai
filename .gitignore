@@ -1,0 +1,4 @@
+data/features/music21/*
+!data/features/music21/.gitkeep
+data/midi/*
+!data/midi/.gitkeep
