@@ -11,9 +11,9 @@ architecture = [{
 		"window_size": 20,
 	    "input_size": 129,
 		"layers": [64, 64, 129],
+		"units": ["LSTM", "LSTM", "Dense"],
 		"activations": ["relu", "relu", "relu"],
 		"dropout": [0.2, 0.5, 0.0],
-		"units": ["LSTM", "LSTM", "Dense"],
 		"use_bias": [True, True, True],
 		"kernel_regularizer_l1": [0.1, 0.0, 0.1],
 		"kernel_regularizer_l2": [0.1, 0.0, 0.1],
@@ -23,8 +23,12 @@ architecture = [{
 		"recurrent_regularizer_l2": [0.1, 0.0, 0.1],
 		"activity_regularizer_l1": [0.1, 0.0, 0.1],
 		"activity_regularizer_l2": [0.1, 0.0, 0.1],
-		"bias_initializer":[None, None, None], 
-		"kernel_initializer":[None, None, None]
 	}]
 
 model.architecture(architecture)
+
+learning_process = [{
+	'optimizer': 'nadam'
+}]
+
+model.compile(learning_process)
