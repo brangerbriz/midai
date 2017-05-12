@@ -1,4 +1,4 @@
-import os
+import os, glob
 import pretty_midi
 import numpy as np
 from midai.utils import log
@@ -35,7 +35,22 @@ def filter_monophonic(pm_instruments, percent_monophonic=0.99):
             get_percent_monophonic(i.get_piano_roll()) >= percent_monophonic]
 
 def save_midi(pm_midis, folder):
+    
+    existing_files = glob.glob(os.path.join(folder, '*.mid'))
+
+    _max = 0
+    for file in existing_files:
+        try:
+            _max = max(int(os.path.basename(file[0:-4])), _max)
+        except ValueError as e:
+            # ignrore non-numeric folders in experiments/
+            pass
+
+    if _max != 0:
+        log('existing midi files found in {}, starting names after {} '\
+            'to avoid collision'.format(folder, _max), 'VERBOSE')
+
     for i, midi in enumerate(pm_midis):
-        file = os.path.join(folder, '{}.mid'.format(i + 1))
+        file = os.path.join(folder, '{}.mid'.format(str(_max + i + 1).rjust(4, '0')))
         midi.write(file)
         log('saved {} to disk'.format(file), 'VERBOSE')
