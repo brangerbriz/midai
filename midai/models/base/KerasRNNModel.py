@@ -1,9 +1,13 @@
-from midai.models import KerasModel 
+from midai.models.base import KerasModel 
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Dropout, LSTM, GRU
 from keras.regularizers import l1_l2
 
 class KerasRNNModel(KerasModel):
+
+
+	def init(self):
+		self.name = "KerasRNNModel"
 
 	# [{"window_size": 20,
 	#   "input_size": 129
@@ -206,4 +210,7 @@ class KerasRNNModel(KerasModel):
 		for unit in arch['units']:
 			if unit not in ['LSTM', 'GRU', 'Dense']:
 				raise Exception('{} is not a valid unit type')
+
+		if 'activations' in arch and arch['activations'][-1] != 'softmax':
+			raise Exception('the last activation must be a softmax activation')
 

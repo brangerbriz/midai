@@ -5,3 +5,5 @@ data/features/music21/*
 !data/features/music21/.gitkeep
 data/midi/*
 !data/midi/.gitkeep
+data/collections/*
+trained_models/*

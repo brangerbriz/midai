@@ -69,11 +69,26 @@ class Model:
 	def save(self):
 		pass
 
-	def architecture(self, architecture):
+	def architecture(self, architectures):
 		pass
 
-	def train(self, kwargs):
-		pass
+	def train(self, train_data=None, val_data=None, train_gen=None, val_gen=None):
+
+		if not self.ready:
+			raise Exception('train called before model ready is True')
+
+		if not train_data and not val_data:
+			if not train_gen or not val_gen:
+				raise Exception('If train_data and val_data are omitted '\
+					            'then you must provide train_gen and val_gen')
+
+		if not train_gen and not val_gen:
+			if not train_data or not val_data:
+				raise Exception('If train_gen and val_gen are omitted '\
+					            'then you must provide train_data and val_data')
+
+		if train_data and val_data and train_gen and val_gen:
+			raise Exception('You cannot use both data and generators for training')
 
 	def evaluate(self):
 		pass

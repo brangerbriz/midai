@@ -28,38 +28,9 @@ def log(message, level, default='VERBOSE'):
 			                        inspect.stack()[1].function,
 			                        message))
 
-# tests the log function
-def test_log():
+def clamp(val, min_, max_):
+    return min_ if val < min_ else max_ if val > max_ else val
 
-	def log_test():
-		print('')
-		message = 'this is a test message.'
-		log(message, 'verbose')
-		log(message, 'notice')
-		log(message, 'warning')
-		log(message, 'error')
-		log(message, 'fatal')
-		print('')
-	
-	os.environ['LOG_LEVEL'] = 'VERBOSE'
-	print('set log level VERBOSE')
-	log_test()
-	
-	os.environ['LOG_LEVEL'] = 'NOTICE'
-	print('set log level NOTICE')
-	log_test()
-
-	os.environ['LOG_LEVEL'] = 'WARNING'
-	print('set log level WARNING')
-	log_test()
-
-	os.environ['LOG_LEVEL'] = 'ERROR'
-	print('set log level ERROR')
-	log_test()
-
-	os.environ['LOG_LEVEL'] = 'FATAL'
-	print('set log level FATAL')
-	log_test()
-
-if __name__ == '__main__':
-	test_log()
+def map_range(a, b, s):
+    (a1, a2), (b1, b2) = a, b
+    return  b1 + ((s - a1) * (b2 - b1) / (a2 - a1))
