@@ -120,13 +120,13 @@ class KerasRNNModel(KerasModel):
 				elif unit == 'Dense':
 					model.add(Dense(arch['layers'][i]))
 
-				# ACTIVATIONS
-				if 'activations' in arch and arch['activations'][i]:
-					model.add(Activation(arch['activations'][i]))
-
 				# DROPOUT
 				if 'dropout' in arch and arch['dropout'][i]:
 					model.add(Dropout(arch['dropout'][i]))
+
+				# ACTIVATIONS
+				if 'activations' in arch and arch['activations'][i]:
+					model.add(Activation(arch['activations'][i]))
 
 			self.models.append(model)
 		self.ready = True

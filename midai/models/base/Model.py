@@ -15,15 +15,15 @@ class Model:
 
 	# creates an experiment directory structure and returns the name
 	# of the created directory
-	def create_experiment_dir(self, experiment_dir=None, stage='develop'):
-		log('creating experiment directory', 
-			'verbose')
+	def create_experiment_dir(self, experiment_dir=None, midai_root=None, mode='develop'):
+		log('creating experiment directory', 'VERBOSE')
 		if not experiment_dir:
-			if not os.getenv('MIDAI_ROOT'):
-				raise Exception('MIDAI_ROOT env var not set and experiment_dir'\
+
+			if not midai_root:
+				raise Exception('midai_root not set and experiment_dir'\
 				                ' not provided as an argument')
 
-			path = [os.getenv('MIDAI_ROOT'), 'trained_models', stage, self.name]
+			path = [midai_root, 'trained_models', mode, self.name]
 			parent_dir = os.path.join(*path)
 
 			if not os.path.exists(parent_dir):
@@ -36,7 +36,7 @@ class Model:
 						   if os.path.isdir(os.path.join(parent_dir, dir_))]
 
 			log('{} existing directories found in {}'\
-				.format(len(experiments), parent_dir), 'verbose')
+				.format(len(experiments), parent_dir), 'VERBOSE')
 
 			most_recent_exp = 0
 			for dir_ in experiments:
@@ -50,15 +50,15 @@ class Model:
 				                          str(most_recent_exp + 1).rjust(3, '0')) 
 
 		os.makedirs(experiment_dir)
-		log('created {}'.format(experiment_dir), 'verbose')
+		log('created {}'.format(experiment_dir), 'VERBOSE')
 		
 		os.makedirs(os.path.join(experiment_dir, 'checkpoints'))
 		log('created {}'\
-			.format(os.path.join(experiment_dir, 'checkpoints')), 'verbose')
+			.format(os.path.join(experiment_dir, 'checkpoints')), 'VERBOSE')
 		
 		os.makedirs(os.path.join(experiment_dir, 'generated'))
 		log('created {}'\
-			.format(os.path.join(experiment_dir, 'generated')), 'verbose')
+			.format(os.path.join(experiment_dir, 'generated')), 'VERBOSE')
 		
 		self.experiment_dir = experiment_dir
 		return experiment_dir

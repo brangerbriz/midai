@@ -13,11 +13,10 @@ def defaults():
 	args['mode']       = 'develop' # production
 
 	# MODEL --------------------------------------------------------------------
+	args['model']               = 'TimeSeqModel'
 	args['tasks']               = ['train', 'generate']
-	args['load_search_path']    = None 
-	args['load']                = 'best' # recent, path
-	args['save']                = None
-	args['model']               = 'TimeSequenceModel'
+	args['load_search_path']    = os.path.join(args['midai_root'], 'trained_models', args['mode'], args['model'])
+	args['load']                = None # best, recent, path
 	args['data_dir']            = os.path.join(args['midai_root'], 'data', 'collections', '2') 
 
 	# TRAIN --------------------------------------------------------------------
@@ -35,7 +34,7 @@ def defaults():
 		"layers": [64, 101],
 		"units": ["LSTM", "Dense"],
 		"activations": ["relu", "softmax"],
-		"dropout": [0.2, 0.5],
+		"dropout": [0.5, 0.0],
 		# "use_bias": [True, True, True],
 		# "kernel_regularizer_l1": [0.1, 0.0, 0.1],
 		# "kernel_regularizer_l2": [0.1, 0.0, 0.1],

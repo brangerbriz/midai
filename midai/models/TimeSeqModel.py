@@ -11,18 +11,17 @@ def get_model(args):
 	model.name = "TimeSeqModel"
 
 	# load an existing model
-	if 'load' in args:
+	if 'load' in args and args['load']:
 		if args['load'] == 'best' or args['load'] == 'recent':
-			paths = [args['midai_root'], 'trained_models', args['mode'], model.name]
 			kwargs = {
 				'best': args['load'] == 'best',
 				'recent': args['load'] == 'recent'
 			}
-			model.load(os.path.join(*paths), **kwargs)
+			model.load(args['load_search_path'], **kwargs)
 		else:
 			model.load(args['load'], best=True, recent=False)
 	else: # create a new model
-		model.create_experiment_dir()
+		model.create_experiment_dir(midai_root=args['midai_root'])
 
 	if not model.ready:
 		model.architecture(args['architecture'])
@@ -34,13 +33,14 @@ def get_model(args):
 def get_data(args):
 
 	midi_paths = midai.data.utils.get_midi_paths(args['data_dir'])
-
-	train_gen, val_gen = midai.data.input.from_midi_generator(midi_paths=midi_paths,
-	                                                          note_representation=args['note_representation'],
-	                                                          encoding=args['data_encoding'],
-	                                                          window_size=args['window_size'],
-	                                                          val_split=args['val_split'])
-	return (train_gen, val_gen), midi_paths
+	if args['use_generator']:
+		_train, _val = \
+			midai.data.input.from_midi_generator(midi_paths=midi_paths,
+		                                         note_representation=args['note_representation'],
+		                                         encoding=args['data_encoding'],
+		                                         window_size=args['window_size'],
+		                                         val_split=args['val_split'])
+	return (_train, _val), midi_paths
 
 
 def train(args, model, data, num_midi_files):
@@ -56,7 +56,7 @@ def generate(args, model, data):
 
 def run(args):
 	
-	args['tasks'] = ['generate']
+	# args['tasks'] = ['generate']
 
 	model        = get_model(args)
 	data, paths  = get_data(args)
