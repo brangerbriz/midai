@@ -1,4 +1,4 @@
-import os, glob, time, random, copy
+import os, glob, time, random, copy, pdb
 import numpy as np
 from midai.models.base import Model
 from midai.utils import log
@@ -11,9 +11,37 @@ class KerasModel(Model):
     def init(self):
         self.name = "KerasModel"
 
-    # TODO: Add best=True, newest=False params and search
-    # dir recursively
-    def load(self, experiment_dir):
+    # TODO: recursively search path 
+    def load(self, path, best=True, recent=False):
+
+        def _find_experiment_dir(path, best, recent):
+                models = []
+                checkpoints = []
+                for dirpath, dirnames, filenames in os.walk(path):
+                    if recent:
+                        if 'model_0.json' in filenames:
+                            models.append(oa.path.join(dirpath, 'model_0.json'))
+                    else: # best
+                        [checkpoints.append(os.path.join(dirpath, c)) for c in \
+                         filter(lambda x: '.hdf5' in x and 'checkpoint' in x,
+                                         filenames)]
+                        
+                if recent:
+                    return os.path.dirname(max(models, key=os.path.getctime))
+                else:
+                    checkpoint = _get_best_checkpoint(checkpoints)
+                    return os.path.dirname(os.path.dirname(checkpoint))
+
+        def _get_best_checkpoint(checkpoints):
+            best = []
+            for check in checkpoints:
+                try:
+                    val_acc = float(check[-10:-5])
+                    best.append((val_acc, check))
+                except ValueError:
+                    pass
+            best.sort(key=lambda x: -x[0])
+            return best[0][1]
 
         if self.ready:
             log('model ready is True, do you really mean to load?', 'WARNING')
@@ -21,6 +49,13 @@ class KerasModel(Model):
         if len(self.models) > 0:
             log('models list is not empty.' \
                 'Have you already loaded this model?', 'WARNING')
+
+        if best and recent:
+            message = '"best" and "recent" arguments are mutually exclusive'
+            log(message, 'ERROR')
+            raise Exception(message)
+
+        experiment_dir = _find_experiment_dir(path, best, recent)
         
         self.models = []
         num_models = len(glob.glob(os.path.join(experiment_dir, 'model_*.json')))
@@ -34,15 +69,15 @@ class KerasModel(Model):
                 model = model_from_json(f.read())
                 log('loaded model {} from JSON'.format(i), 'VERBOSE')
 
-            epoch = 0
+            # epoch = 0
             path = [experiment_dir, 'checkpoints', 'model_{}*.hdf5'.format(i)]
-            newest_checkpoint = max(glob.glob(os.path.join(*path)), key=os.path.getctime)
+            best_checkpoint = _get_best_checkpoint(glob.glob(os.path.join(*path)))
 
-            if newest_checkpoint: 
-               epoch = int(newest_checkpoint[-22:-19])
-               model.load_weights(newest_checkpoint)
+            if best_checkpoint: 
+               # epoch = int(newest_checkpoint[-22:-19])
+               model.load_weights(best_checkpoint)
                log('loaded model {} weights from checkpoint {}'
-                   .format(i, newest_checkpoint), 'VERBOSE')
+                   .format(i, best_checkpoint), 'VERBOSE')
 
             self.models.append(model)
 
@@ -63,7 +98,6 @@ class KerasModel(Model):
 
         if not self.ready:
             raise Exception('compile called before model ready is True')
-        print(len(self.models))
         if len(learning_processes) != len(self.models):
             raise Exception('element size mismatch between learning_processes'\
                             ' and number of models')
@@ -202,8 +236,6 @@ class KerasModel(Model):
                 generated.append(gen(model, seed, window_size, length))
                 log('generated data of length {}'.format(length), 'VERBOSE')
             per_model.append(copy.deepcopy(generated))
-        print('num files: {}'.format(len(per_model)))
-        print(np.sum(per_model, axis=1))
         return per_model
 
     def callbacks(self, model_index):
