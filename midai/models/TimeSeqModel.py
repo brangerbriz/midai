@@ -1,4 +1,4 @@
-import os
+import os, pdb
 import midai
 from midai.models.base import KerasRNNModel
 from midai.utils import log
@@ -39,24 +39,27 @@ def get_data(args):
 		                                         note_representation=args['note_representation'],
 		                                         encoding=args['data_encoding'],
 		                                         window_size=args['window_size'],
-		                                         val_split=args['val_split'])
+		                                         val_split=args['val_split'],
+		                                         glove_dimension=args['glove_dimension'])
 	return (_train, _val), midi_paths
 
 
 def train(args, model, data, num_midi_files):
-	model.train(num_midi_files=num_midi_files, train_gen=data[0], val_gen=data[1])
+	model.train(num_midi_files=num_midi_files, train_gen=data[0], val_gen=data[1], 
+		        batch_size=args['batch_size'], num_epochs=args['num_epochs'])
 
 def generate(args, model, data):
 	X, _ = next(data[1])
 	output = model.generate(X, args['window_size'], 
 		                    args['generated_file_length'], 
-		                    args['num_files_to_generate'])
+		                    args['num_files_to_generate'],
+		                    args['data_encoding'])
 	midis = midai.data.output.to_midi(output[0], args['note_representation'])
 	save_midi(midis, os.path.join(model.experiment_dir, 'generated'))
 
 def run(args):
 	
-	# args['tasks'] = ['generate']
+	args['tasks'] = ['generate']
 
 	model        = get_model(args)
 	data, paths  = get_data(args)

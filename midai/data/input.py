@@ -1,5 +1,6 @@
+import os, pdb
 import numpy as np
-from midai.utils import clamp, map_range
+from midai.utils import clamp, map_range, log
 from midai.data.utils import parse_midi, filter_monophonic
 from multiprocessing import Pool as ThreadPool
 
@@ -12,7 +13,8 @@ def from_midi(midi_paths=None,
               batch_size=32,
               val_split=0.20,
               shuffle=False,
-              num_threads=1):
+              num_threads=1,
+              glove_dimension=10):
     pass
 
 def from_midi_generator(midi_paths=None, 
@@ -23,7 +25,8 @@ def from_midi_generator(midi_paths=None,
                         batch_size=32,
                         val_split=0.20,
                         shuffle=False,
-                        num_threads=1):
+                        num_threads=1,
+                        glove_dimension=10):
 
     val_split_index = int(float(len(midi_paths)) * val_split)
     train_paths = midi_paths[0:val_split_index]
@@ -31,12 +34,63 @@ def from_midi_generator(midi_paths=None,
 
     train_gen = _get_data_generator(midi_paths, raw_midi, note_representation,
                                     encoding, window_size, batch_size, 
-                                    val_split, shuffle, num_threads)
+                                    val_split, shuffle, num_threads, glove_dimension)
 
     val_gen   = _get_data_generator(midi_paths,  raw_midi, note_representation,
                                     encoding, window_size, batch_size,
-                                    val_split, shuffle, num_threads)
+                                    val_split, shuffle, num_threads, glove_dimension)
     return train_gen, val_gen
+
+def one_hot_2_glove_embedding(X):
+    
+    if not _glove_embeddings:
+        raise Exception('glove embeddings have not been loaded. '\
+                        'Load with load_glove_embeddings(...)')
+
+    # store glove_embedding Xs in a temp buff
+    buf = []
+    for j, x in enumerate(X):
+       # the one-hot encoding stores rests as the first element, but our
+       # embedding table stores it as the 128th element, so we pop the first
+       # value off of the front and append it to the back.
+       rest = x[0] 
+       x = np.delete(x, 0)
+       x = np.append(x, rest)
+       index = np.argmax(x)
+       buf.append(_glove_embeddings[index])
+    return buf
+
+_glove_embeddings = None
+def load_glove_embeddings(dim, glove_path):
+    # skip if done
+    if _glove_embeddings:
+        return
+
+    global _glove_embeddings
+    _glove_embeddings = []
+
+    # parse glove embeddings csv transforming TRACK_NUM to 128 and <unk> to 129
+    with open(os.path.join(glove_path, 'vectors_d{}.txt'.format(dim)), 'r') as f:
+        for line in f.readlines():
+            split = line.split()
+            if split[0] == '<unk>': split[0] = 130
+            elif split[0] == 'TRACK_START': split[0] = 129
+            _glove_embeddings.append(np.asarray([float(x) for x in split]))
+
+    # add random rest vector as the 128th row
+    with open(os.path.join(glove_path, 'rest.txt')) as f:
+        vec = [128] + [float(x) for x in f.read().split(' ')][0:dim]
+        _glove_embeddings.append(vec)
+
+    # sort the list by index (numeric key)
+    _glove_embeddings.sort(key=lambda x: x[0])
+
+    # remove index
+    for i, _ in enumerate(_glove_embeddings):
+        _glove_embeddings[i] = np.delete(_glove_embeddings[i], 0)
+
+    log('loaded GloVe vector embeddings with dimension: {}'.format(dim), 'VERBOSE')
+
     
 def _get_data_generator(midi_paths,
                         raw_midi,
@@ -46,7 +100,8 @@ def _get_data_generator(midi_paths,
                         batch_size, 
                         val_split, 
                         shuffle, 
-                        num_threads):
+                        num_threads,
+                        glove_dimension):
     if num_threads > 1:
         pool = ThreadPool(num_threads)
 
@@ -67,7 +122,8 @@ def _get_data_generator(midi_paths,
         # print('Finished in {:.2f} seconds'.format(time.time() - start_time))
         # print('parsed, now extracting data')
         data = _windows_from_monophonic_instruments(parsed, window_size, 
-                                                    note_representation, encoding)
+                                                    note_representation, encoding, 
+                                                    glove_dimension)
         
         # if shuffle:
         #     # shuffle in unison
@@ -94,7 +150,11 @@ def _get_data_generator(midi_paths,
     
 # returns X, y data windows from all monophonic instrument
 # tracks in a pretty midi file
-def _windows_from_monophonic_instruments(midi, window_size, note_representation, encoding):
+def _windows_from_monophonic_instruments(midi, 
+                                         window_size, 
+                                         note_representation, 
+                                         encoding, 
+                                         glove_dimension):
     X, y = [], []
     for m in midi:
         if m is not None:
@@ -104,20 +164,27 @@ def _windows_from_monophonic_instruments(midi, window_size, note_representation,
                     windows = _encode_windows(instrument, 
                                               window_size,
                                               note_representation, 
-                                              encoding)
+                                              encoding, glove_dimension)
                     for w in windows:
                         X.append(w[0])
                         y.append(w[1])
     return [np.asarray(X), np.asarray(y)]
 
-def _encode_windows(pm_instrument, window_size, note_representation, encoding):
+def _encode_windows(pm_instrument, window_size, note_representation, encoding, glove_dimension):
     
+    if encoding == 'glove-embedding' and not _glove_embeddings:
+        load_glove_embeddings(glove_dimension, '/home/bbpwn2/Documents/code/midai/data/embeddings/glove')
+
     if note_representation == 'absolute':
         if encoding == 'one-hot':
-            return _encode_sliding_window_absolute_one_hot(pm_instrument, window_size)
+            return _encode_window_absolute_one_hot(pm_instrument, window_size)
+        elif encoding == 'glove-embedding':
+            return _encode_window_absolute_glove_embedding(pm_instrument, window_size)
     if note_representation == 'relative':
         if encoding == 'one-hot':
             return _encode_window_relative_one_hot(pm_instrument, window_size)
+        elif encoding == 'glove-embedding':
+            pass
 
     raise Exception('Unsupported note_representation, encoding combo: {}, {}'
                     .format(note_representation, encoding))
@@ -151,7 +218,7 @@ def _encode_window_absolute_one_hot(pm_instrument, window_size):
     
     windows = []
     for i in range(0, roll.shape[0] - window_size - 1):
-        windows.append((roll[i:i + window_size], roll[i + window_size + 1]))
+        windows.append([roll[i:i + window_size], roll[i + window_size + 1]])
     return windows
 
 def _encode_window_relative_one_hot(pm_instrument, window_size):
@@ -225,3 +292,14 @@ def _encode_window_relative_one_hot(pm_instrument, window_size):
         windows.append((window, predict))
 
     return windows
+
+def _encode_window_absolute_glove_embedding(pm_instrument, window_size):
+
+    # leverage existing one-hot function
+    windows = _encode_window_absolute_one_hot(pm_instrument, window_size)
+    
+    # for each X, y window pair
+    for i, window in enumerate(windows):
+        windows[i][0] = one_hot_2_glove_embedding(windows[i][0])
+    return windows
+                   

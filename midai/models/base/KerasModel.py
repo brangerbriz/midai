@@ -1,5 +1,6 @@
 import os, glob, time, random, copy, pdb
 import numpy as np
+import midai.data as data
 from midai.models.base import Model
 from midai.utils import log
 from keras.optimizers import SGD, RMSprop, Adagrad, Adadelta, Adam, Adamax, Nadam
@@ -20,7 +21,7 @@ class KerasModel(Model):
                 for dirpath, dirnames, filenames in os.walk(path):
                     if recent:
                         if 'model_0.json' in filenames:
-                            models.append(oa.path.join(dirpath, 'model_0.json'))
+                            models.append(os.path.join(dirpath, 'model_0.json'))
                     else: # best
                         [checkpoints.append(os.path.join(dirpath, c)) for c in \
                          filter(lambda x: '.hdf5' in x and 'checkpoint' in x,
@@ -202,26 +203,35 @@ class KerasModel(Model):
 
         return histories
 
-    def generate(self, seeds, window_size, length, num_to_gen):
+    def generate(self, seeds, window_size, length, num_to_gen, encoding='one-hot'):
     
         def gen(model, seed, window_size, length):
             
             generated = []
             # ring buffer
             buf = np.copy(seed).tolist()
+            
+            if encoding == 'glove-embedding':
+                buf = data.input.one_hot_2_glove_embedding(buf)
+
             while len(generated) < length:
                 arr = np.expand_dims(np.asarray(buf), 0)
+                # error here: ValueError: Error when checking : expected lstm_1_input to have 3 dimensions, but got array with shape (1, 20)
                 pred = model.predict(arr)
                 
                 # argmax sampling (NOT RECOMMENDED), or...
                 # index = np.argmax(pred)
 
                 # prob distrobuition sampling
-                index = np.random.choice(range(0, seed.shape[1]), p=pred[0])
-                pred = np.zeros(seed.shape[1])
+                index = np.random.choice(range(0, len(pred[0])), p=pred[0])
+                pred = np.zeros(len(pred[0]))
 
                 pred[index] = 1
                 generated.append(pred)
+
+                if encoding == 'glove-embedding':
+                    pred = data.input.one_hot_2_glove_embedding([pred])[0]
+
                 buf.pop(0)
                 buf.append(pred)
 
