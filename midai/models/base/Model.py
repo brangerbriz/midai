@@ -15,7 +15,12 @@ class Model:
 
 	# creates an experiment directory structure and returns the name
 	# of the created directory
-	def create_experiment_dir(self, experiment_dir=None, midai_root=None, mode='develop'):
+	def create_experiment_dir(self,
+							  note_representation,
+		                      encoding,
+		                      experiment_dir=None, 
+		                      midai_root=None, 
+		                      mode='develop'):
 		log('creating experiment directory', 'VERBOSE')
 		if not experiment_dir:
 
@@ -23,7 +28,8 @@ class Model:
 				raise Exception('midai_root not set and experiment_dir'\
 				                ' not provided as an argument')
 
-			path = [midai_root, 'trained_models', mode, self.name]
+			path = [midai_root, 'trained_models', mode, self.name,
+			        '{}_{}'.format(note_representation, encoding)]
 			parent_dir = os.path.join(*path)
 
 			if not os.path.exists(parent_dir):
@@ -77,17 +83,17 @@ class Model:
 		if not self.ready:
 			raise Exception('train called before model ready is True')
 
-		if not train_data and not val_data:
+		if train_data is None and val_data is None:
 			if not train_gen or not val_gen:
 				raise Exception('If train_data and val_data are omitted '\
 					            'then you must provide train_gen and val_gen')
 
 		if not train_gen and not val_gen:
-			if not train_data or not val_data:
+			if train_data is None or val_data is None:
 				raise Exception('If train_gen and val_gen are omitted '\
 					            'then you must provide train_data and val_data')
 
-		if train_data and val_data and train_gen and val_gen:
+		if train_data is not None and val_data is not None and train_gen and val_gen:
 			raise Exception('You cannot use both data and generators for training')
 
 	def evaluate(self):

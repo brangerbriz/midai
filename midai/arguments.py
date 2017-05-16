@@ -9,14 +9,15 @@ def defaults():
 	args = dict()
 
 	# MISC ---------------------------------------------------------------------
-	args['midai_root'] = os.path.join(os.path.dirname(__file__), '..')
-	args['mode']       = 'develop' # production
+	args['midai_root']  = os.path.join(os.path.dirname(__file__), '..')
+	args['mode']        = 'develop' # production
+	args['num_threads'] = 8
 
 	# MODEL --------------------------------------------------------------------
 	args['model']               = 'TimeSeqModel'
-	args['tasks']               = ['train', 'generate']
+	args['tasks']               = ['train', 'generate'] # ['train', 'generate']
 	args['load_search_path']    = os.path.join(args['midai_root'], 'trained_models', args['mode'], args['model'])
-	args['load']                = 'recent' # best, recent, path
+	args['load']                = None # None, 'best', 'recent', path
 	args['data_dir']            = os.path.join(args['midai_root'], 'data', 'collections', '2') 
 
 	# TRAIN --------------------------------------------------------------------
@@ -25,7 +26,7 @@ def defaults():
 	args['note_representation'] = 'absolute' # relative
 	args['window_size']         = 20
 	args['batch_size']          = 32
-	args['num_epochs']          = 30
+	args['num_epochs']          = 10
 	args['use_generator']       = True
 	args['val_split']           = 0.2
 	args['glove_dimension']     = 25
@@ -55,6 +56,7 @@ def defaults():
 	# GENERATE -----------------------------------------------------------------
 	args['num_files_to_generate'] = 10
 	args['generated_file_length'] = 500
+	args['seed']                  = os.path.join(args['midai_root'], 'data', 'seeds', '001.mid') 
 
 	return args
 

@@ -54,3 +54,9 @@ def save_midi(pm_midis, folder):
         file = os.path.join(folder, '{}.mid'.format(str(_max + i + 1).rjust(4, '0')))
         midi.write(file)
         log('saved {} to disk'.format(file), 'VERBOSE')
+
+def split_data(data, split):
+    split_index = int(float(len(data)) * (1.0 - split))
+    train = data[0:split_index]
+    val   = data[split_index:]
+    return train, val

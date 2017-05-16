@@ -1,4 +1,4 @@
-import os, pdb
+import os, pudb
 import midai
 from midai.models.base import KerasRNNModel
 from midai.utils import log
@@ -21,7 +21,9 @@ def get_model(args):
 		else:
 			model.load(args['load'], best=True, recent=False)
 	else: # create a new model
-		model.create_experiment_dir(midai_root=args['midai_root'])
+		model.create_experiment_dir(args['note_representation'],
+									args['data_encoding'],
+		                            midai_root=args['midai_root'])
 
 	if not model.ready:
 		model.architecture(args['architecture'])
@@ -33,23 +35,51 @@ def get_model(args):
 def get_data(args):
 
 	midi_paths = midai.data.utils.get_midi_paths(args['data_dir'])
+
+	kwargs = {
+		"midi_paths": midi_paths,
+        "note_representation": args['note_representation'],
+        "encoding": args['data_encoding'],
+        "window_size": args['window_size'],
+        "val_split": args['val_split'],
+        "glove_dimension": args['glove_dimension'],
+        "num_threads": args['num_threads']
+	}
+
 	if args['use_generator']:
-		_train, _val = \
-			midai.data.input.from_midi_generator(midi_paths=midi_paths,
-		                                         note_representation=args['note_representation'],
-		                                         encoding=args['data_encoding'],
-		                                         window_size=args['window_size'],
-		                                         val_split=args['val_split'],
-		                                         glove_dimension=args['glove_dimension'])
+		_train, _val = midai.data.input.from_midi_generator(**kwargs)
+	else:
+		_train, _val = midai.data.input.from_midi(**kwargs)
 	return (_train, _val), midi_paths
 
 
 def train(args, model, data, num_midi_files):
-	model.train(num_midi_files=num_midi_files, train_gen=data[0], val_gen=data[1], 
-		        batch_size=args['batch_size'], num_epochs=args['num_epochs'])
+
+	kwargs = dict()
+	kwargs['num_midi_files'] = num_midi_files
+	kwargs['num_epochs']     = args['num_epochs']
+	kwargs['batch_size']     = args['batch_size']
+
+	if args['use_generator']:
+		kwargs['train_gen']  = data[0]
+		kwargs['val_gen']    = data[1]
+	else:
+		kwargs['train_data'] = data[0]
+		kwargs['val_data']   = data[1]
+	model.train(**kwargs)
 
 def generate(args, model, data):
-	X, _ = next(data[1])
+	if args['seed']:
+		_, val = midai.data.input.from_midi(midi_paths=[args['seed']],
+		                                    note_representation=args['note_representation'],
+	                                        encoding=args['data_encoding'],
+	                                        window_size=args['window_size'],
+	                                        val_split=args['val_split'],
+	                                        glove_dimension=args['glove_dimension'])
+		X = val[0] # use only the first window
+	else:
+		X, _ = next(data[1])
+
 	output = model.generate(X, args['window_size'], 
 		                    args['generated_file_length'], 
 		                    args['num_files_to_generate'],
@@ -59,8 +89,6 @@ def generate(args, model, data):
 
 def run(args):
 	
-	args['tasks'] = ['generate']
-
 	model        = get_model(args)
 	data, paths  = get_data(args)
 	

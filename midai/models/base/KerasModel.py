@@ -1,4 +1,4 @@
-import os, glob, time, random, copy, pdb
+import os, glob, time, random, copy, pudb
 import numpy as np
 import midai.data as data
 from midai.models.base import Model
@@ -182,10 +182,11 @@ class KerasModel(Model):
                 kwargs['validation_steps'] = num_midi_files * 0.2 * magic_number / batch_size
                 history = model.fit_generator(**kwargs)
             else:
-                kwargs['x'] = train_data
-                kwargs['y'] = val_data
+                kwargs['x'] = train_data[0]
+                kwargs['y'] = train_data[1]
+                kwargs['validation_data'] = val_data
                 kwargs['batch_size'] = batch_size
-                kwargs['shuffle'] = False
+                pudb.set_trace()
                 history = model.fit(**kwargs)
 
             log('Finished training model in {:.2f} seconds'.format(time.time() - start_time), 'NOTICE')

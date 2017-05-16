@@ -1,7 +1,7 @@
-import os, pdb
+import os, pudb
 import numpy as np
 from midai.utils import clamp, map_range, log
-from midai.data.utils import parse_midi, filter_monophonic
+from midai.data.utils import parse_midi, filter_monophonic, split_data
 from multiprocessing import Pool as ThreadPool
 
 #TODO support model_class param w/ vals 'time-sequence' and 'event'
@@ -15,7 +15,24 @@ def from_midi(midi_paths=None,
               shuffle=False,
               num_threads=1,
               glove_dimension=10):
-    pass
+    if num_threads > 1:
+        pool = ThreadPool(num_threads)
+        parsed = pool.map(parse_midi, midi_paths)
+    else:
+        parsed = list(map(parse_midi, midi_paths))
+    
+    data = _windows_from_monophonic_instruments(parsed, window_size, 
+                                                note_representation, encoding, 
+                                                glove_dimension)
+
+    # convert data from (X0-n, y0-n) to ((X0, y0), (X1, y1), ...) format
+    data = list(zip(data[0], data[1]))
+
+    if shuffle:
+        data = np.random.permutation(data)
+
+    train, val = split_data(data, val_split)
+    return np.asarray(list(zip(*train))).tolist(), np.asarray(list(zip(*val))).tolist()
 
 def from_midi_generator(midi_paths=None, 
                         raw_midi=None, 
@@ -28,17 +45,16 @@ def from_midi_generator(midi_paths=None,
                         num_threads=1,
                         glove_dimension=10):
 
-    val_split_index = int(float(len(midi_paths)) * val_split)
-    train_paths = midi_paths[0:val_split_index]
-    val_paths = midi_paths[val_split_index:]
+    train_paths, val_paths = split_data(midi_paths, val_split)
+    pudb.set_trace()
 
-    train_gen = _get_data_generator(midi_paths, raw_midi, note_representation,
+    train_gen = _get_data_generator(train_paths, note_representation,
                                     encoding, window_size, batch_size, 
-                                    val_split, shuffle, num_threads, glove_dimension)
+                                    shuffle, num_threads, glove_dimension)
 
-    val_gen   = _get_data_generator(midi_paths,  raw_midi, note_representation,
+    val_gen   = _get_data_generator(val_paths, note_representation,
                                     encoding, window_size, batch_size,
-                                    val_split, shuffle, num_threads, glove_dimension)
+                                    shuffle, num_threads, glove_dimension)
     return train_gen, val_gen
 
 def one_hot_2_glove_embedding(X):
@@ -60,7 +76,6 @@ def one_hot_2_glove_embedding(X):
        buf.append(_glove_embeddings[index])
     return buf
 
-_glove_embeddings = None
 def load_glove_embeddings(dim, glove_path):
     # skip if done
     if _glove_embeddings:
@@ -90,15 +105,13 @@ def load_glove_embeddings(dim, glove_path):
         _glove_embeddings[i] = np.delete(_glove_embeddings[i], 0)
 
     log('loaded GloVe vector embeddings with dimension: {}'.format(dim), 'VERBOSE')
-
+_glove_embeddings = None
     
 def _get_data_generator(midi_paths,
-                        raw_midi,
                         note_representation,
                         encoding, 
                         window_size, 
                         batch_size, 
-                        val_split, 
                         shuffle, 
                         num_threads,
                         glove_dimension):
@@ -160,6 +173,8 @@ def _windows_from_monophonic_instruments(midi,
         if m is not None:
             melody_instruments = filter_monophonic(m.instruments, 1.0)
             for instrument in melody_instruments:
+                # WARNING: This is an event model style check but it is also
+                # currently being applied to the time sequence model.
                 if len(instrument.notes) > window_size:
                     windows = _encode_windows(instrument, 
                                               window_size,
@@ -168,6 +183,9 @@ def _windows_from_monophonic_instruments(midi,
                     for w in windows:
                         X.append(w[0])
                         y.append(w[1])
+                else:
+                    # log('Fewer notes than window_size permits, skipping instrument', 'WARNING')
+                    pass
     return [np.asarray(X), np.asarray(y)]
 
 def _encode_windows(pm_instrument, window_size, note_representation, encoding, glove_dimension):
@@ -196,7 +214,7 @@ def _encode_windows(pm_instrument, window_size, note_representation, encoding, g
 # expects pm_instrument to be monophonic.
 def _encode_window_absolute_one_hot(pm_instrument, window_size):
 
-    roll = np.copy(pm_instrument.get_piano_roll(fs=4).T)
+    roll = np.copy(pm_instrument.get_piano_roll(fs=16).T)
 
     # trim beginning silence
     summed = np.sum(roll, axis=1)
@@ -223,7 +241,7 @@ def _encode_window_absolute_one_hot(pm_instrument, window_size):
 
 def _encode_window_relative_one_hot(pm_instrument, window_size):
     
-    roll = np.copy(pm_instrument.get_piano_roll(fs=4).T)
+    roll = np.copy(pm_instrument.get_piano_roll(fs=16).T)
 
     # trim beginning silence
     summed = np.sum(roll, axis=1)
